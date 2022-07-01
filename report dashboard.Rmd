@@ -1,0 +1,167 @@
+---
+title: "Performance Management System"
+output: 
+  flexdashboard::flex_dashboard:
+    theme:
+      version: 4
+      bg: "#FFFFFF"
+      fg: "#0A2240"
+      base_font:
+        google: "Poppins"
+    orientation: rows
+    vertical_layout: fill
+
+
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(tidyverse)
+library(plotly)
+library(shinyWidgets)
+library(plyr)
+library(thematic)
+
+x <- read.csv("Cleaned Performance Measures Long.csv") 
+numbers <- c("1", "2", "3" ,"4")
+goals <- unique(x$GoalDescription)
+
+x$Goal <- as.character(x$Goal)
+x$Measure <- as.character(x$Measure)
+
+x$Quarter[x$Quarter == "FY22.QTR.1.7/1-9/30/21"] <- "FY22 QTR 1 7/1-9/30/21"
+x$Quarter[x$Quarter == "FY22.QTR.2.10/1-12/31/21"] <- "FY22 QTR 2 10/1-12/31/21"
+x$Quarter[x$Quarter == "FY22.QTR.3.1/1-3/31/22"] <- "FY22 QTR 3 1/1-3/31/22"
+x$Quarter[x$Quarter == "FY22.QTR.4.4/1-6/30/22"] <- "FY22 QTR 4 4/1-6/30/22"
+table(x$Quarter)
+x$Quarter <- factor(x$Quarter, levels = c("FY22 QTR 1 7/1-9/30/21", "FY22 QTR 2 10/1-12/31/21", 
+                                             "FY22 QTR 3 1/1-3/31/22", "FY22 QTR 4 4/1-6/30/22"))
+
+
+```
+
+ 
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+`
+```{r}
+
+
+
+selectInput('inputgoal', "Goal", choices = as.character(goals), selected = as.character(goals[1]))
+
+
+selectInput('inputmeasure', 'Measure', choices = as.character(unique(x$MeasureDescription)))
+
+
+observeEvent(input$inputgoal,{
+   updateSelectInput(session,'inputmeasure',
+           choices= as.character(unique(x$MeasureDescription[x$GoalDescription==input$inputgoal])))
+})
+
+
+```
+
+```{r}
+
+df <- reactive({
+  
+  df <-  filter(x, GoalDescription == as.character(input$inputgoal) , 
+                          MeasureDescription == as.character(input$inputmeasure))
+  
+  return(df)
+})
+  
+
+
+  
+```
+
+
+
+## Row 1 {data-height=100}
+### Team Lead
+
+```{r}
+
+renderText({
+  glimpse(unique(df()$Team.Lead))
+  })
+
+```
+
+### Activity Type
+
+```{r}
+
+renderText({
+  glimpse(unique(df()$Activity.Type))
+  })
+
+```
+
+### Target Number
+
+```{r}
+
+renderText({
+  glimpse(unique(df()$Target.Number))
+  })
+
+```
+
+## Row 2 
+### Measure {data-height=900 data-width=800}
+
+```{r}
+
+thematic_on(
+  font = "Poppins"
+)
+
+
+
+  
+renderPlotly({
+
+fig <- ggplot(df(), aes(x = Quarter, y = Measurement, fill = Measurement >= Target.Number)) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = Measurement), vjust = 0, color = "black")+
+    labs(x="Quarter", title = input$inputmeasure)+
+    theme(legend.position = "none")+
+    scale_y_continuous()
+
+ggplotly(fig, tooltip = c("Quarter", "Measurement"))
+
+})
+
+
+
+```
+
+### Notes {data-height=900 data-width=200}
+
+```{r}
+
+thematic_on(
+  font = "Poppins"
+)
+
+
+
+renderText({
+
+Print <- df() %>%
+  filter(Quarter == "FY22 QTR 3 1/1-3/31/22")
+
+Print$Notes
+
+})
+
+
+
+```
+
